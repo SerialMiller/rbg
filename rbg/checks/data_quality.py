@@ -1,4 +1,4 @@
-"""Layer 3 — Data Quality & Ginsburg Pass.
+"""Layer 3 — Data Quality.
 
 Checks for:
   - Asymmetric missingness between groups
