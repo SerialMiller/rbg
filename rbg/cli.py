@@ -42,18 +42,31 @@ def main():
     help="Output path for the HTML report.",
 )
 @click.option(
+    "--screenshot/--no-screenshot",
+    "take_screenshot",
+    default=False,
+    help="Capture a PNG screenshot of the report using Playwright.",
+)
+@click.option(
     "--open/--no-open",
     "open_browser",
     default=True,
     help="Open the report in a browser after generation.",
 )
-def audit(notebook: str, data: tuple[str, ...], output: str | None, open_browser: bool):
+def audit(
+    notebook: str,
+    data: tuple[str, ...],
+    output: str | None,
+    take_screenshot: bool,
+    open_browser: bool,
+):
     """Run a three-layer audit on a Jupyter notebook.
 
     \b
     Examples:
       rbg audit analysis.ipynb
       rbg audit analysis.ipynb -d data.csv
+      rbg audit analysis.ipynb -d data.csv --screenshot
       rbg audit analysis.ipynb -d data.csv -d controls.csv -o report.html
     """
     click.echo(BANNER)
@@ -111,10 +124,35 @@ def audit(notebook: str, data: tuple[str, ...], output: str | None, open_browser
     report_path = result["output_path"]
     click.echo(f"  Report:    {report_path}")
 
+    # Screenshot with Playwright
+    if take_screenshot:
+        screenshot_path = Path(report_path).with_suffix(".png")
+        click.echo(f"  Screenshot: {screenshot_path}")
+        try:
+            _capture_screenshot(report_path, str(screenshot_path))
+            click.echo("  Screenshot captured.")
+        except Exception as e:
+            click.echo(f"  Screenshot failed: {e}")
+
     # Open in browser
     if open_browser:
         import webbrowser
         webbrowser.open(f"file://{Path(report_path).resolve()}")
+
+
+def _capture_screenshot(html_path: str, png_path: str) -> None:
+    """Capture a full-page screenshot of an HTML report using Playwright."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1024, "height": 768})
+        page.goto(f"file://{Path(html_path).resolve()}")
+        # Wait for any CSS transitions
+        page.wait_for_timeout(500)
+        # Full page screenshot
+        page.screenshot(path=png_path, full_page=True)
+        browser.close()
 
 
 @main.command()
